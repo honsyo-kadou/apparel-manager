@@ -142,11 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${imageHtml}
                 <div class="product-info">
                     <div class="product-header">
-                        <span class="status-badge ${statusInfo.class}">${statusInfo.label}</span>
+                        <h3 class="product-title status-text-${statusInfo.class.replace('status-', '')}">${product.name}</h3>
                         ${actionBtn}
                         <button class="btn-sm btn-ghost" onclick="deleteProduct(${product.id}); event.stopPropagation();" style="color:#ef4444;">🗑️</button>
                     </div>
-                    <h3 class="product-title">${product.name}</h3>
                     ${priceHtml}
                     <div class="product-meta">
                         <span>${product.listingDate ? product.listingDate : '未出品'}</span>
