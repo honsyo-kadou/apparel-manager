@@ -21,9 +21,143 @@ document.addEventListener('DOMContentLoaded', () => {
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     // const filePrompt = document.getElementById('filePrompt'); // Removed
 
-    // ... (DOM Elements - Tabs & Controls skipped) ...
+    // DOM Elements - Tabs & Controls
+    const tabList = document.getElementById('tabList');
+    const tabReport = document.getElementById('tabReport');
+    const listViewControls = document.getElementById('listViewControls');
+    const reportSection = document.getElementById('reportSection');
 
-    // ... (skipped to around line 465) ...
+    // Global State Helpers
+    let currentEditId = null;
+    let currentImages = [];
+
+    const STATUS_MAP = {
+        'purchased': { label: '仕入済', class: 'status-purchased' },
+        'listed': { label: '出品中', class: 'status-listed' },
+        'sold': { label: '売却済', class: 'status-sold' },
+        'hold': { label: '保留', class: 'status-hold' },
+        'stagnant': { label: '回転悪化', class: 'status-stagnant' }
+    };
+
+    // Helper: Format Currency
+    const formatCurrency = (num) => {
+        return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(num);
+    };
+
+    // Helper: Date Difference
+    const getDaysDiff = (dateStr) => {
+        if (!dateStr) return 0;
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    // Save to LocalStorage
+    const save = () => {
+        localStorage.setItem('apparel_products', JSON.stringify(state.products));
+        render();
+    };
+
+    // Switch Tab
+    const switchTab = (tabName) => {
+        // Reset dashboard visibility (simple toggle, override handles specific logic)
+        const dashboardSection = document.getElementById('dashboardSection');
+        const tabDashboard = document.getElementById('tabDashboard');
+        if (dashboardSection) dashboardSection.style.display = 'none';
+        if (tabDashboard) tabDashboard.classList.remove('active');
+
+        if (tabName === 'list') {
+            tabList.classList.add('active');
+            tabReport.classList.remove('active');
+            listViewControls.style.display = 'block';
+            grid.style.display = 'grid';
+            reportSection.style.display = 'none';
+            render();
+        } else {
+            tabList.classList.remove('active');
+            tabReport.classList.add('active');
+            listViewControls.style.display = 'none';
+            grid.style.display = 'none';
+            emptyState.style.display = 'none';
+            reportSection.style.display = 'block';
+        }
+    };
+
+    tabList.addEventListener('click', () => switchTab('list'));
+    tabReport.addEventListener('click', () => switchTab('report'));
+
+    // Render Product List
+    const render = () => {
+        grid.innerHTML = '';
+
+        if (state.products.length === 0) {
+            emptyState.style.display = 'block';
+            return;
+        }
+        emptyState.style.display = 'none';
+
+        state.products.forEach(product => {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+
+            // Image
+            let imageHtml = '';
+            if (product.images && product.images.length > 0) {
+                imageHtml = `<img src="${product.images[0]}" class="product-image" loading="lazy">`;
+            } else if (product.image) {
+                imageHtml = `<img src="${product.image}" class="product-image" loading="lazy">`;
+            } else {
+                imageHtml = `<div class="product-image" style="background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;">No Image</div>`;
+            }
+
+            // Status
+            let status = product.status || 'purchased';
+            if (status === 'active') status = 'listed';
+
+            const statusInfo = STATUS_MAP[status] || STATUS_MAP['purchased'];
+
+            // Prices
+            let priceHtml = `<div class="price-row"><span class="price-buy">仕入: ${formatCurrency(product.buyPrice)}</span></div>`;
+            if (product.sellPrice) {
+                const profit = product.sellPrice - product.buyPrice - ((product.costs?.commission || 0) + (product.costs?.shipping || 0) + (product.costs?.packaging || 0));
+                const profitClass = profit >= 0 ? 'profit-positive' : 'profit-negative';
+                priceHtml = `
+                    <div class="price-row">
+                        <span class="price-sell">売却: ${formatCurrency(product.sellPrice)}</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="price-profit ${profitClass}">利益: ${formatCurrency(profit)}</span>
+                    </div>
+                `;
+            }
+
+            // Quick Sell / Delete
+            let actionBtn = '';
+            if (status !== 'sold') {
+                actionBtn = `<button class="btn-sm btn-outline" onclick="openSellModal(${product.id}); event.stopPropagation();">売却</button>`;
+            }
+
+            card.innerHTML = `
+                ${imageHtml}
+                <div class="product-info">
+                    <div class="product-header">
+                        <span class="status-badge ${statusInfo.class}">${statusInfo.label}</span>
+                        ${actionBtn}
+                        <button class="btn-sm btn-ghost" onclick="deleteProduct(${product.id}); event.stopPropagation();" style="color:#ef4444;">🗑️</button>
+                    </div>
+                    <h3 class="product-title">${product.name}</h3>
+                    ${priceHtml}
+                    <div class="product-meta">
+                        <span>${product.listingDate ? product.listingDate : '未出品'}</span>
+                    </div>
+                </div>
+            `;
+
+            card.addEventListener('click', () => openEditModal(product.id));
+            grid.appendChild(card);
+        });
+    };
 
     // Render Image Preview Grid
     const renderImagePreviews = () => {
@@ -44,7 +178,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ... (skipped) ...
+    // Remove Image Helper
+    window.removeImage = (index) => {
+        currentImages.splice(index, 1);
+        renderImagePreviews();
+    };
 
     // Image Handling
     const handleFiles = (files) => {
