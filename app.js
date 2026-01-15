@@ -252,6 +252,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('itemStatus').value = 'purchased'; // Default
         currentImages = [];
         renderImagePreviews();
+
+        // Hide Delete Button for New Items
+        document.getElementById('modalDeleteBtn').style.display = 'none';
+
         addModal.classList.add('active');
     });
 
@@ -263,6 +267,20 @@ document.addEventListener('DOMContentLoaded', () => {
         currentEditId = id;
         document.querySelector('.modal-title').textContent = '商品を修正';
         document.querySelector('#addForm button[type="submit"]').textContent = '更新する';
+
+        // Show and Bind Delete Button
+        const deleteBtn = document.getElementById('modalDeleteBtn');
+        deleteBtn.style.display = 'block';
+        deleteBtn.onclick = () => {
+            if (confirm('本当に削除しますか？')) {
+                const index = state.products.findIndex(p => p.id === id);
+                if (index !== -1) {
+                    state.products.splice(index, 1);
+                    save();
+                    addModal.classList.remove('active');
+                }
+            }
+        };
 
         // Fill form
         document.getElementById('itemName').value = product.name;
