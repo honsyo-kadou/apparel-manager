@@ -318,67 +318,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
     addForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const name = document.getElementById('itemName').value;
-        const buyPrice = parseInt(document.getElementById('buyPrice').value);
-        const purchaseDate = document.getElementById('purchaseDate').value;
-        const listingDate = document.getElementById('listingDate').value;
+        try {
+            const name = document.getElementById('itemName').value;
+            const buyPrice = parseInt(document.getElementById('buyPrice').value);
+            const purchaseDate = document.getElementById('purchaseDate').value;
+            const listingDate = document.getElementById('listingDate').value;
 
-        const sellPriceInput = document.getElementById('editSellPrice').value;
-        const sellPrice = sellPriceInput ? parseInt(sellPriceInput) : null;
-        const saleDate = document.getElementById('saleDate').value;
-        const memo = document.getElementById('itemMemo').value;
-        let status = document.getElementById('itemStatus').value;
+            const sellPriceInput = document.getElementById('editSellPrice').value;
+            const sellPrice = sellPriceInput ? parseInt(sellPriceInput) : null;
+            const saleDate = document.getElementById('saleDate').value;
+            const memo = document.getElementById('itemMemo').value;
+            let status = document.getElementById('itemStatus').value;
 
-        // Auto 'Sold' status logic
-        if (sellPrice !== null && saleDate) {
-            status = 'sold';
-        }
-
-        // Costs
-        const costs = {
-            commission: parseInt(document.getElementById('costCommission').value) || 0,
-            shipping: parseInt(document.getElementById('costShipping').value) || 0,
-            packaging: parseInt(document.getElementById('costPackaging').value) || 0
-        };
-
-        if (currentEditId !== null) {
-            // Update
-            const index = state.products.findIndex(p => p.id === currentEditId);
-            if (index !== -1) {
-                state.products[index].name = name;
-                state.products[index].buyPrice = buyPrice;
-                state.products[index].purchaseDate = purchaseDate;
-                state.products[index].listingDate = listingDate;
-
-                state.products[index].sellPrice = sellPrice;
-                state.products[index].saleDate = saleDate;
-                state.products[index].status = status;
-                state.products[index].costs = costs;
-                state.products[index].memo = memo;
-
-                state.products[index].images = currentImages;
-                delete state.products[index].image;
+            // Auto 'Sold' status logic
+            if (sellPrice !== null && saleDate) {
+                status = 'sold';
             }
-        } else {
-            // Create
-            const newProduct = {
-                id: Date.now(),
-                name,
-                buyPrice,
-                purchaseDate,
-                listingDate,
-                images: currentImages,
-                status: status, // Defaults to 'purchased' or selected
-                sellPrice: sellPrice,
-                saleDate,
-                costs: costs,
-                memo: memo
-            };
-            state.products.unshift(newProduct);
-        }
 
-        save();
-        addModal.classList.remove('active');
+            // Costs
+            const costs = {
+                commission: parseInt(document.getElementById('costCommission').value) || 0,
+                shipping: parseInt(document.getElementById('costShipping').value) || 0,
+                packaging: parseInt(document.getElementById('costPackaging').value) || 0
+            };
+
+            if (currentEditId !== null) {
+                // Update
+                const index = state.products.findIndex(p => p.id === currentEditId);
+                if (index !== -1) {
+                    state.products[index].name = name;
+                    state.products[index].buyPrice = buyPrice;
+                    state.products[index].purchaseDate = purchaseDate;
+                    state.products[index].listingDate = listingDate;
+
+                    state.products[index].sellPrice = sellPrice;
+                    state.products[index].saleDate = saleDate;
+                    state.products[index].status = status;
+                    state.products[index].costs = costs;
+                    state.products[index].memo = memo;
+
+                    state.products[index].images = currentImages;
+                    delete state.products[index].image;
+                }
+            } else {
+                // Create
+                const newProduct = {
+                    id: Date.now(),
+                    name,
+                    buyPrice,
+                    purchaseDate,
+                    listingDate,
+                    images: currentImages,
+                    status: status, // Defaults to 'purchased' or selected
+                    sellPrice: sellPrice,
+                    saleDate,
+                    costs: costs,
+                    memo: memo
+                };
+                state.products.unshift(newProduct);
+            }
+
+            save();
+            addModal.classList.remove('active');
+        } catch (error) {
+            alert('登録中にエラーが発生しました: ' + error.message);
+            console.error(error);
+        }
     });
 
     // --- Mobile Optimization Logic ---

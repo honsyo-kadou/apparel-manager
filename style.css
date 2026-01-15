@@ -641,6 +641,8 @@ h1 {
         border-radius: 20px 20px 0 0;
         padding: 1.5rem;
         max-height: 85vh;
+        overflow-y: auto;
+        /* Restore scrolling */
         margin: 0;
         animation: slideUpMobile 0.3s ease-out;
     }
