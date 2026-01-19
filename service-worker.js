@@ -1,8 +1,9 @@
-const CACHE_NAME = 'apparel-manager-v4';
+const CACHE_NAME = 'apparel-manager-v5';
 const ASSETS = [
     './',
     './index.html',
     './style.v3.css',
+    './db.js',
     './app.js',
     './manifest.json',
     './icon-192.png',

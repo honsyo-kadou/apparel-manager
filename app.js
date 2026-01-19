@@ -1,7 +1,33 @@
 document.addEventListener('DOMContentLoaded', () => {
     // State
     const state = {
-        products: JSON.parse(localStorage.getItem('apparel_products')) || []
+        products: []
+    };
+
+    // Initialize App
+    const initApp = async () => {
+        try {
+            // 1. Try Migration (only runs if needed)
+            await db.migrateFromLocalStorage();
+
+            // 2. Load Data from DB
+            const products = await db.getAllProducts();
+
+            // 3. Sort by ID descending (newest first) to match previous behavior
+            state.products = products.sort((a, b) => b.id - a.id);
+
+            // 4. Permission UI Check (Notification)
+            if (Notification.permission === 'granted') {
+                const stagnantCount = checkStagnantItems(); // This now might be async? No, checkStagnantItems is sync logic but calling save().
+                // We need to update checkStagnantItems to be async or handle saving differently.
+                // Let's handle that in the function definition.
+            }
+
+            render();
+        } catch (error) {
+            console.error('Failed to initialize app:', error);
+            alert('アプリの読み込みに失敗しました。');
+        }
     };
 
     // DOM Elements - Main UI
@@ -53,11 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
-    // Save to LocalStorage
-    const save = () => {
-        localStorage.setItem('apparel_products', JSON.stringify(state.products));
-        render();
-    };
+    // Save to LocalStorage - DEPRECATED / REMOVED
+    // Individual DB calls are used instead.
+    // const save = () => { ... };
 
     // Switch Tab
     const switchTab = (tabName) => {
@@ -275,8 +299,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const index = state.products.findIndex(p => p.id === id);
                 if (index !== -1) {
                     state.products.splice(index, 1);
-                    save();
-                    addModal.classList.remove('active');
+                    db.deleteProduct(id).then(() => {
+                        render();
+                        addModal.classList.remove('active');
+                    });
                 }
             }
         };
@@ -326,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const index = state.products.findIndex(p => p.id === id);
             if (index !== -1) {
                 state.products.splice(index, 1);
-                save();
+                db.deleteProduct(id).then(render);
             }
         }
     };
@@ -376,6 +402,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     state.products[index].images = currentImages;
                     delete state.products[index].image;
+
+                    db.saveProduct(state.products[index]).then(() => {
+                        render();
+                        addModal.classList.remove('active');
+                    });
                 }
             } else {
                 // Create
@@ -392,11 +423,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     costs: costs,
                     memo: memo
                 };
-                state.products.unshift(newProduct);
-            }
 
-            save();
-            addModal.classList.remove('active');
+                // Add to State
+                state.products.unshift(newProduct);
+
+                // Save to DB
+                db.saveProduct(newProduct).then(() => {
+                    render();
+                    addModal.classList.remove('active');
+                });
+            }
         } catch (error) {
             alert('登録中にエラーが発生しました: ' + error.message);
             console.error(error);
@@ -514,14 +550,17 @@ document.addEventListener('DOMContentLoaded', () => {
             state.products[index].saleDate = date;
             state.products[index].status = 'sold';
             // Costs and other fields remain unchanged
-        }
 
-        save();
-        sellModal.classList.remove('active');
+            db.saveProduct(state.products[index]).then(() => {
+                render();
+                sellModal.classList.remove('active');
+            });
+        }
     });
 
     // Initial Render
-    render();
+    // Initial Render moved to initApp
+    initApp();
 
     // --- Stagnant Inventory Logic ---
 
@@ -548,8 +587,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (hasUpdates) {
-            save();
-            // Show toast or alert in-app? maybe just silent update is fine as per req.
+            // Save all stagnant updates
+            // Since this might be multiple, we allow it to be async in background
+            const updates = state.products.filter(p => p.status === 'stagnant');
+            updates.forEach(p => db.saveProduct(p));
+            render(); // Re-render to show updates
         }
 
         return stagnantCount;
