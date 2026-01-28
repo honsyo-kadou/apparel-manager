@@ -1,6 +1,6 @@
 const DB_NAME = 'ApparelManagerDB';
 const STORE_NAME = 'products';
-const DB_VERSION = 1;
+const DB_VERSION = 4; // Bump to 4 to ensure drafts store is created
 
 const db = {
     // Open Database
@@ -10,8 +10,13 @@ const db = {
 
             request.onupgradeneeded = (e) => {
                 const db = e.target.result;
+                // Create products store if not exists
                 if (!db.objectStoreNames.contains(STORE_NAME)) {
                     db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                }
+                // Create drafts store if not exists (NEW)
+                if (!db.objectStoreNames.contains('drafts')) {
+                    db.createObjectStore('drafts', { keyPath: 'id' });
                 }
             };
 
@@ -58,6 +63,51 @@ const db = {
             const transaction = database.transaction([STORE_NAME], 'readwrite');
             const store = transaction.objectStore(STORE_NAME);
             const request = store.delete(id);
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    // --- Draft Methods (NEW) ---
+
+    // Get Draft
+    getDraft: async () => {
+        const database = await db.open();
+        return new Promise((resolve, reject) => {
+            const transaction = database.transaction(['drafts'], 'readonly');
+            const store = transaction.objectStore('drafts');
+            // We only have one draft for 'new_product'
+            const request = store.get('new_product_draft');
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+            // Note: If no draft exists, result is undefined (not error)
+        });
+    },
+
+    // Save Draft
+    saveDraft: async (draftData) => {
+        const database = await db.open();
+        return new Promise((resolve, reject) => {
+            const transaction = database.transaction(['drafts'], 'readwrite');
+            const store = transaction.objectStore('drafts');
+            // Ensure fixed ID
+            draftData.id = 'new_product_draft';
+            const request = store.put(draftData);
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    // Delete Draft
+    deleteDraft: async () => {
+        const database = await db.open();
+        return new Promise((resolve, reject) => {
+            const transaction = database.transaction(['drafts'], 'readwrite');
+            const store = transaction.objectStore('drafts');
+            const request = store.delete('new_product_draft');
 
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);

@@ -4,6 +4,57 @@ document.addEventListener('DOMContentLoaded', () => {
         products: []
     };
 
+    // Helper: Debounce
+    const debounce = (func, wait) => {
+        let timeout;
+        return function (...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+    };
+
+    // Auto-Save Draft Function
+    const saveCurrentDraft = async () => {
+        // Only save if we are editing a NEW product (currentEditId is null)
+        // If editing existing product, we might not want to overwrite 'new_product_draft'
+        // But for now, let's focus on "New Product" drafts as requested.
+        if (currentEditId !== null) return;
+
+        const draftData = {
+            id: 'new_product_draft', // Fixed ID
+            name: document.getElementById('itemName').value,
+            buyPrice: document.getElementById('buyPrice').value,
+            purchaseDate: document.getElementById('purchaseDate').value,
+            listingDate: document.getElementById('listingDate').value,
+            status: document.getElementById('itemStatus').value,
+            // Sell info
+            sellPrice: document.getElementById('editSellPrice').value,
+            saleDate: document.getElementById('saleDate').value,
+            // Costs
+            costs: {
+                commission: document.getElementById('costCommission').value,
+                shipping: document.getElementById('costShipping').value,
+                packaging: document.getElementById('costPackaging').value
+            },
+            memo: document.getElementById('itemMemo').value,
+            images: currentImages, // State variable
+            timestamp: Date.now()
+        };
+
+        try {
+            await db.saveDraft(draftData);
+            // console.log('Draft saved'); // Silent success
+        } catch (e) {
+            console.error('Failed to save draft', e);
+            alert('下書き保存に失敗しました'); // Only alert on error if persistent
+        }
+    };
+
+    // Debounced Save - Reduced wait time
+    const debouncedSaveDraft = debounce(saveCurrentDraft, 500);
+
+
     // Initialize App
     const initApp = async () => {
         try {
@@ -205,7 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.removeImage = (index) => {
         currentImages.splice(index, 1);
         renderImagePreviews();
+        saveCurrentDraft(); // Save draft immediately on image change
     };
+
 
     // Image Handling
     const handleFiles = (files) => {
@@ -216,7 +269,9 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (e) => {
                 currentImages.push(e.target.result);
                 renderImagePreviews();
+                saveCurrentDraft(); // Save draft immediately on image add
             };
+
             reader.readAsDataURL(file);
         });
     };
@@ -407,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         render();
                         addModal.classList.remove('active');
                     });
+
                 }
             } else {
                 // Create
@@ -428,10 +484,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.products.unshift(newProduct);
 
                 // Save to DB
-                db.saveProduct(newProduct).then(() => {
+                db.saveProduct(newProduct).then(async () => {
+                    // Clear draft after successful creation
+                    await db.deleteDraft();
+                    console.log('Draft cleared');
+
                     render();
                     addModal.classList.remove('active');
                 });
+
             }
         } catch (error) {
             alert('登録中にエラーが発生しました: ' + error.message);
@@ -483,7 +544,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Note: addBtn has event listener, not onclick. We need to hook into the existing listener or add a new one that runs after?
     // Listeners run in order. We can just add another listener to addBtn.
 
-    addBtn.addEventListener('click', () => {
+    // Add listeners to input fields for auto-save
+    const formInputs = addForm.querySelectorAll('input, select, textarea');
+    formInputs.forEach(input => {
+        input.addEventListener('input', debouncedSaveDraft);
+        input.addEventListener('change', debouncedSaveDraft); // For date pickers / selects
+    });
+
+    addBtn.addEventListener('click', async () => {
+
         // 1. Auto-Focus Name
         setTimeout(() => {
             const nameInput = document.getElementById('itemName');
@@ -498,8 +567,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 3. Reset Chips
+        // 3. Reset Chips
         updateChips('purchased');
+
+        // 4. Check for Draft and Restore
+        try {
+            const draft = await db.getDraft();
+            if (draft) {
+                // Restore logic
+                // console.log('Restoring draft', draft);
+                
+                // Alert User
+                // alert('未保存の下書きを復元しました'); 
+                // Using a less intrusive notification might be better, but user asked for "Confirmation".
+                // Let's use a subtle way or just do it. 
+                // The user said "Draft data is missing", so they want to KNOW it works.
+                // I'll add a temporary toast or just rely on the data appearing.
+                // Let's add a small text indicator?
+                // Or just an alert for now as verification.
+                // "下書きを復元しました"
+                
+                let restored = false;
+
+                if (draft.name) { document.getElementById('itemName').value = draft.name; restored = true; }
+                if (draft.buyPrice) { document.getElementById('buyPrice').value = draft.buyPrice; restored = true; }
+                if (draft.purchaseDate) document.getElementById('purchaseDate').value = draft.purchaseDate;
+                if (draft.listingDate) document.getElementById('listingDate').value = draft.listingDate;
+                
+                if (draft.status) {
+                    document.getElementById('itemStatus').value = draft.status;
+                    updateChips(draft.status);
+                }
+
+                if (draft.sellPrice) document.getElementById('editSellPrice').value = draft.sellPrice;
+                if (draft.saleDate) document.getElementById('saleDate').value = draft.saleDate;
+                if (draft.memo) document.getElementById('itemMemo').value = draft.memo;
+
+                if (draft.costs) {
+                    if (draft.costs.commission) document.getElementById('costCommission').value = draft.costs.commission;
+                    if (draft.costs.shipping) document.getElementById('costShipping').value = draft.costs.shipping;
+                    if (draft.costs.packaging) document.getElementById('costPackaging').value = draft.costs.packaging;
+                }
+
+                if (draft.images && draft.images.length > 0) {
+                    currentImages = draft.images;
+                    renderImagePreviews();
+                    restored = true;
+                }
+
+                if (restored) {
+                    alert('下書きを復元しました');
+                    // console.log('Draft restored successfully');
+                }
+            }
+        } catch (e) {
+            console.error('Error restoring draft:', e);
+        }
     });
+
+
 
 
 
