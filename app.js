@@ -14,12 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    let isSubmitting = false; // Flag to prevent auto-save during submission
+
     // Auto-Save Draft Function
     const saveCurrentDraft = async () => {
         // Only save if we are editing a NEW product (currentEditId is null)
         // If editing existing product, we might not want to overwrite 'new_product_draft'
         // But for now, let's focus on "New Product" drafts as requested.
-        if (currentEditId !== null) return;
+        if (currentEditId !== null || isSubmitting) return;
 
         const draftData = {
             id: 'new_product_draft', // Fixed ID
@@ -492,6 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     addForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        isSubmitting = true; // Block auto-saves
         try {
             const name = document.getElementById('itemName').value;
             const buyPrice = parseInt(document.getElementById('buyPrice').value);
@@ -537,6 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     db.saveProduct(state.products[index]).then(() => {
                         render();
                         addModal.classList.remove('active');
+                        isSubmitting = false; // Reset flag
                     });
 
                 }
@@ -567,12 +571,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     render();
                     addModal.classList.remove('active');
+                    isSubmitting = false; // Reset flag
                 });
 
             }
         } catch (error) {
             alert('登録中にエラーが発生しました: ' + error.message);
             console.error(error);
+            isSubmitting = false; // Reset flag on error
         }
     });
 
@@ -1029,5 +1035,207 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start Auth Init
     // Delay slightly to ensure google script loaded or poll
     initGoogleAuth();
+
+    // --- Report Logic (Aggregated Here) ---
+
+    // Report DOM Elements
+    const typeMonthlyBtn = document.getElementById('typeMonthly');
+    const typePeriodBtn = document.getElementById('typePeriod');
+    const monthlyControls = document.getElementById('monthlyControls');
+    const periodControls = document.getElementById('periodControls');
+    const reportMonthInput = document.getElementById('reportMonth');
+    const reportStartDateInput = document.getElementById('reportStartDate');
+    const reportEndDateInput = document.getElementById('reportEndDate');
+    const calcBtn = document.getElementById('calcBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const statsGrid = document.getElementById('statsGrid');
+
+    let reportType = 'monthly'; // 'monthly' or 'period'
+
+    // Initialize Report View
+    const initReportView = () => {
+        // Set default to current month
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        reportMonthInput.value = `${yyyy}-${mm}`;
+
+        // Default Period (1st to today)
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        reportStartDateInput.value = firstDay.toISOString().split('T')[0];
+        reportEndDateInput.value = today.toISOString().split('T')[0];
+    };
+    initReportView();
+
+    // Toggle Report Type
+    typeMonthlyBtn.addEventListener('click', () => {
+        reportType = 'monthly';
+        typeMonthlyBtn.classList.add('active');
+        typePeriodBtn.classList.remove('active');
+        monthlyControls.style.display = 'block';
+        periodControls.style.display = 'none';
+    });
+
+    typePeriodBtn.addEventListener('click', () => {
+        reportType = 'period';
+        typePeriodBtn.classList.add('active');
+        typeMonthlyBtn.classList.remove('active');
+        monthlyControls.style.display = 'none';
+        periodControls.style.display = 'flex';
+    });
+
+    // Helper: Filter items by date range
+    const getItemsInPeriod = (startStr, endStr) => {
+        if (!startStr || !endStr) return [];
+        return state.products.filter(p => {
+            // Must be sold
+            if (p.status !== 'sold' || !p.saleDate) return false;
+            return p.saleDate >= startStr && p.saleDate <= endStr;
+        });
+    };
+
+    // Calculate Stats
+    const calculateStats = () => {
+        let startDate, endDate;
+
+        if (reportType === 'monthly') {
+            const monthVal = reportMonthInput.value; // YYYY-MM
+            if (!monthVal) {
+                alert('月を選択してください');
+                return null;
+            }
+            // First and Last day of month
+            startDate = `${monthVal}-01`;
+            // Calculate last day
+            const [y, m] = monthVal.split('-').map(Number);
+            const lastDay = new Date(y, m, 0).getDate();
+            endDate = `${monthVal}-${lastDay}`;
+        } else {
+            startDate = reportStartDateInput.value;
+            endDate = reportEndDateInput.value;
+            if (!startDate || !endDate) {
+                alert('期間を選択してください');
+                return null;
+            }
+        }
+
+        const items = getItemsInPeriod(startDate, endDate);
+
+        // Aggregation
+        let totalSales = 0;
+        let totalCost = 0; // Buy Price
+        let totalExpense = 0; // Commission + Shipping + Packaging
+        let count = items.length;
+
+        items.forEach(p => {
+            totalSales += (p.sellPrice || 0);
+            totalCost += (p.buyPrice || 0);
+
+            const costs = p.costs || {};
+            totalExpense += (costs.commission || 0) + (costs.shipping || 0) + (costs.packaging || 0);
+        });
+
+        const grossProfit = totalSales - totalCost - totalExpense;
+        const profitMargin = totalSales > 0 ? (grossProfit / totalSales * 100).toFixed(1) : 0;
+
+        return {
+            rangeLabel: reportType === 'monthly' ? `${reportMonthInput.value}月` : `${startDate} ~ ${endDate}`,
+            count,
+            totalSales,
+            totalCost,
+            totalExpense,
+            grossProfit,
+            profitMargin,
+            items // for CSV
+        };
+    };
+
+    // Render Stats
+    const renderStats = (stats) => {
+        if (!stats) return;
+
+        statsGrid.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-label">売上件数</div>
+                <div class="stat-value">${stats.count}件</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">売上総額</div>
+                <div class="stat-value">${formatCurrency(stats.totalSales)}</div>
+            </div>
+            <div class="stat-card highlight">
+                <div class="stat-label">粗利益</div>
+                <div class="stat-value">${formatCurrency(stats.grossProfit)}</div>
+                <div class="stat-sub">利益率: ${stats.profitMargin}%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">仕入総額</div>
+                <div class="stat-value">${formatCurrency(stats.totalCost)}</div>
+            </div>
+             <div class="stat-card">
+                <div class="stat-label">経費計</div>
+                <div class="stat-value">${formatCurrency(stats.totalExpense)}</div>
+            </div>
+        `;
+    };
+
+    // Calc Button Action
+    if (calcBtn) {
+        calcBtn.addEventListener('click', () => {
+            const stats = calculateStats();
+            if (stats) renderStats(stats);
+        });
+    }
+
+    // Export CSV Action
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            const stats = calculateStats();
+            if (!stats || stats.count === 0) {
+                alert('出力するデータがありません');
+                return;
+            }
+
+            // CSV Header
+            let csvContent = "ID,商品名,仕入日,出品日,取引日,ステータス,仕入価格,販売価格,手数料,送料,梱包費,利益\n";
+
+            stats.items.forEach(p => {
+                const costs = p.costs || {};
+                const commission = costs.commission || 0;
+                const shipping = costs.shipping || 0;
+                const packaging = costs.packaging || 0;
+                const profit = (p.sellPrice || 0) - (p.buyPrice || 0) - commission - shipping - packaging;
+
+                // Escape quotes
+                const name = p.name.replace(/"/g, '""');
+
+                const row = [
+                    p.id,
+                    `"${name}"`,
+                    p.purchaseDate || '',
+                    p.listingDate || '',
+                    p.saleDate || '',
+                    STATUS_MAP[p.status]?.label || p.status,
+                    p.buyPrice || 0,
+                    p.sellPrice || 0,
+                    commission,
+                    shipping,
+                    packaging,
+                    profit
+                ].join(",");
+                csvContent += row + "\n";
+            });
+
+            // Download
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sales_report_${stats.rangeLabel.replace(/[\s~]/g, '_')}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        });
+    }
 
 }); // End of DOMContentLoaded
