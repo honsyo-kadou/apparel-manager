@@ -321,77 +321,97 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Add Item Logic
-    addBtn.addEventListener('click', async () => {
-        currentEditId = null;
-        document.querySelector('.modal-title').textContent = '新しい商品';
-        document.querySelector('#addForm button[type="submit"]').textContent = '登録する';
+    // Old Listener Removed
+    const handleAddProduct = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
 
-        // 1. Reset Form & UI
-        addForm.reset();
-        document.getElementById('itemStatus').value = 'purchased'; // Default
-        currentImages = [];
-        renderImagePreviews();
-        updateChips('purchased');
+        // Guard against double clicks
+        if (addBtn.dataset.isProcessing === 'true') return;
+        addBtn.dataset.isProcessing = 'true';
 
-        // Hide Delete Button for New Items
-        document.getElementById('modalDeleteBtn').style.display = 'none';
-
-        // 2. Set Default Date to Today
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('purchaseDate').value = today;
-
-        // 3. Check for Draft and Restore or Discard
         try {
-            const draft = await db.getDraft();
-            if (draft) {
-                // Confirm with user
-                if (confirm('前回の下書きが残っています。続きから入力しますか？\n「キャンセル」を選択すると下書きは削除されます。')) {
-                    // Restore logic
-                    let restored = false;
+            currentEditId = null;
+            document.querySelector('.modal-title').textContent = '新しい商品';
+            document.querySelector('#addForm button[type="submit"]').textContent = '登録する';
 
-                    if (draft.name) { document.getElementById('itemName').value = draft.name; restored = true; }
-                    if (draft.buyPrice) { document.getElementById('buyPrice').value = draft.buyPrice; restored = true; }
-                    if (draft.purchaseDate) document.getElementById('purchaseDate').value = draft.purchaseDate;
-                    if (draft.listingDate) document.getElementById('listingDate').value = draft.listingDate;
+            // 1. Reset Form & UI
+            addForm.reset();
+            document.getElementById('itemStatus').value = 'purchased'; // Default
+            currentImages = [];
+            renderImagePreviews();
+            updateChips('purchased');
 
-                    if (draft.status) {
-                        document.getElementById('itemStatus').value = draft.status;
-                        updateChips(draft.status);
+            // Hide Delete Button for New Items
+            document.getElementById('modalDeleteBtn').style.display = 'none';
+
+            // 2. Set Default Date to Today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('purchaseDate').value = today;
+
+            // 3. Check for Draft and Restore or Discard
+            try {
+                // Determine if we need to check draft (only for manual add)
+                const draft = await db.getDraft();
+                if (draft) {
+                    // Confirm with user
+                    if (confirm('前回の下書きが残っています。続きから入力しますか？\n「キャンセル」を選択すると下書きは削除されます。')) {
+                        // Restore logic
+                        let restored = false;
+
+                        if (draft.name) { document.getElementById('itemName').value = draft.name; restored = true; }
+                        if (draft.buyPrice) { document.getElementById('buyPrice').value = draft.buyPrice; restored = true; }
+                        if (draft.purchaseDate) document.getElementById('purchaseDate').value = draft.purchaseDate;
+                        if (draft.listingDate) document.getElementById('listingDate').value = draft.listingDate;
+
+                        if (draft.status) {
+                            document.getElementById('itemStatus').value = draft.status;
+                            updateChips(draft.status);
+                        }
+
+                        if (draft.sellPrice) document.getElementById('editSellPrice').value = draft.sellPrice;
+                        if (draft.saleDate) document.getElementById('saleDate').value = draft.saleDate;
+                        if (draft.memo) document.getElementById('itemMemo').value = draft.memo;
+
+                        if (draft.costs) {
+                            if (draft.costs.commission) document.getElementById('costCommission').value = draft.costs.commission;
+                            if (draft.costs.shipping) document.getElementById('costShipping').value = draft.costs.shipping;
+                            if (draft.costs.packaging) document.getElementById('costPackaging').value = draft.costs.packaging;
+                        }
+
+                        if (draft.images && draft.images.length > 0) {
+                            currentImages = draft.images;
+                            renderImagePreviews();
+                            restored = true;
+                        }
+                    } else {
+                        // User chose to discard
+                        await db.deleteDraft();
                     }
-
-                    if (draft.sellPrice) document.getElementById('editSellPrice').value = draft.sellPrice;
-                    if (draft.saleDate) document.getElementById('saleDate').value = draft.saleDate;
-                    if (draft.memo) document.getElementById('itemMemo').value = draft.memo;
-
-                    if (draft.costs) {
-                        if (draft.costs.commission) document.getElementById('costCommission').value = draft.costs.commission;
-                        if (draft.costs.shipping) document.getElementById('costShipping').value = draft.costs.shipping;
-                        if (draft.costs.packaging) document.getElementById('costPackaging').value = draft.costs.packaging;
-                    }
-
-                    if (draft.images && draft.images.length > 0) {
-                        currentImages = draft.images;
-                        renderImagePreviews();
-                        restored = true;
-                    }
-                } else {
-                    // User chose to discard
-                    await db.deleteDraft();
                 }
+            } catch (e) {
+                console.error('Error checking draft:', e);
             }
-        } catch (e) {
-            console.error('Error checking draft:', e);
+
+            // 4. Show Modal
+            addModal.classList.add('active');
+
+            // 5. Auto-Focus Name (after modal visible)
+            setTimeout(() => {
+                const nameInput = document.getElementById('itemName');
+                nameInput.focus();
+            }, 100);
+
+        } finally {
+            // Release Guard
+            setTimeout(() => {
+                addBtn.dataset.isProcessing = 'false';
+            }, 500);
         }
+    };
 
-        // 4. Show Modal
-        addModal.classList.add('active');
+    // Use ONCLICK to strictly enforce single handler
+    addBtn.onclick = handleAddProduct;
 
-        // 5. Auto-Focus Name (after modal visible)
-        setTimeout(() => {
-            const nameInput = document.getElementById('itemName');
-            nameInput.focus();
-        }, 100);
-    });
 
     // Expose openEditModal
     window.openEditModal = (id) => {
@@ -799,9 +819,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Dashboard Actions
-    document.getElementById('dashBtnAdd').addEventListener('click', () => {
-        addBtn.click(); // Trigger existing add modal
-    });
+    // Replaced with direct binding to handleAddProduct
+    const dashAddBtn = document.getElementById('dashBtnAdd');
+    if (dashAddBtn) {
+        dashAddBtn.onclick = handleAddProduct;
+    }
 
     document.getElementById('dashBtnList').addEventListener('click', () => {
         switchTab('list');

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apparel-manager-v8';
+const CACHE_NAME = 'apparel-manager-v10';
 const ASSETS = [
     './',
     './index.html',
