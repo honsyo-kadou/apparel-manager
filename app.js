@@ -574,50 +574,47 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const draft = await db.getDraft();
             if (draft) {
-                // Restore logic
-                // console.log('Restoring draft', draft);
-                
-                // Alert User
-                // alert('未保存の下書きを復元しました'); 
-                // Using a less intrusive notification might be better, but user asked for "Confirmation".
-                // Let's use a subtle way or just do it. 
-                // The user said "Draft data is missing", so they want to KNOW it works.
-                // I'll add a temporary toast or just rely on the data appearing.
-                // Let's add a small text indicator?
-                // Or just an alert for now as verification.
-                // "下書きを復元しました"
-                
-                let restored = false;
+                // Confirm with user
+                if (confirm('前回の下書きが残っています。続きから入力しますか？\n「キャンセル」を選択すると下書きは削除されます。')) {
+                    // Restore logic
+                    // console.log('Restoring draft', draft);
 
-                if (draft.name) { document.getElementById('itemName').value = draft.name; restored = true; }
-                if (draft.buyPrice) { document.getElementById('buyPrice').value = draft.buyPrice; restored = true; }
-                if (draft.purchaseDate) document.getElementById('purchaseDate').value = draft.purchaseDate;
-                if (draft.listingDate) document.getElementById('listingDate').value = draft.listingDate;
-                
-                if (draft.status) {
-                    document.getElementById('itemStatus').value = draft.status;
-                    updateChips(draft.status);
-                }
+                    let restored = false;
 
-                if (draft.sellPrice) document.getElementById('editSellPrice').value = draft.sellPrice;
-                if (draft.saleDate) document.getElementById('saleDate').value = draft.saleDate;
-                if (draft.memo) document.getElementById('itemMemo').value = draft.memo;
+                    if (draft.name) { document.getElementById('itemName').value = draft.name; restored = true; }
+                    if (draft.buyPrice) { document.getElementById('buyPrice').value = draft.buyPrice; restored = true; }
+                    if (draft.purchaseDate) document.getElementById('purchaseDate').value = draft.purchaseDate;
+                    if (draft.listingDate) document.getElementById('listingDate').value = draft.listingDate;
 
-                if (draft.costs) {
-                    if (draft.costs.commission) document.getElementById('costCommission').value = draft.costs.commission;
-                    if (draft.costs.shipping) document.getElementById('costShipping').value = draft.costs.shipping;
-                    if (draft.costs.packaging) document.getElementById('costPackaging').value = draft.costs.packaging;
-                }
+                    if (draft.status) {
+                        document.getElementById('itemStatus').value = draft.status;
+                        updateChips(draft.status);
+                    }
 
-                if (draft.images && draft.images.length > 0) {
-                    currentImages = draft.images;
-                    renderImagePreviews();
-                    restored = true;
-                }
+                    if (draft.sellPrice) document.getElementById('editSellPrice').value = draft.sellPrice;
+                    if (draft.saleDate) document.getElementById('saleDate').value = draft.saleDate;
+                    if (draft.memo) document.getElementById('itemMemo').value = draft.memo;
 
-                if (restored) {
-                    alert('下書きを復元しました');
-                    // console.log('Draft restored successfully');
+                    if (draft.costs) {
+                        if (draft.costs.commission) document.getElementById('costCommission').value = draft.costs.commission;
+                        if (draft.costs.shipping) document.getElementById('costShipping').value = draft.costs.shipping;
+                        if (draft.costs.packaging) document.getElementById('costPackaging').value = draft.costs.packaging;
+                    }
+
+                    if (draft.images && draft.images.length > 0) {
+                        currentImages = draft.images;
+                        renderImagePreviews();
+                        restored = true;
+                    }
+
+                    if (restored) {
+                        // Optional: small notification or just proceed
+                        // alert('下書きを復元しました'); 
+                    }
+                } else {
+                    // User chose to discard
+                    await db.deleteDraft();
+                    // console.log('Draft discarded by user');
                 }
             }
         } catch (e) {
