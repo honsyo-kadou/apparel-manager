@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'listed': { label: '出品中', class: 'status-listed' },
         'sold': { label: '売却済', class: 'status-sold' },
         'hold': { label: '保留', class: 'status-hold' },
+        'disposal': { label: '処分', class: 'status-disposal' },
         'stagnant': { label: '回転悪化', class: 'status-stagnant' }
     };
 
@@ -1132,6 +1133,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return p.listingDate && p.listingDate >= startDate && p.listingDate <= endDate;
         });
 
+        // 4. Disposal Count (New)
+        const disposedItems = state.products.filter(p => {
+            // Use saleDate as the "disposal date" (transaction date)
+            return p.status === 'disposal' && p.saleDate && p.saleDate >= startDate && p.saleDate <= endDate;
+        });
+
         // Aggregation
         let totalSales = 0;
         let totalCost = 0; // Buy Price of SOLD items
@@ -1154,6 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             count, // Sold count
             purchasedCount: purchasedItems.length,
             listedCount: listedItems.length,
+            disposedCount: disposedItems.length,
             totalSales,
             totalCost,
             totalExpense,
@@ -1179,6 +1187,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="stat-card">
                 <div class="stat-label">売上件数</div>
                 <div class="stat-value">${stats.count}件</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">処分件数</div>
+                <div class="stat-value">${stats.disposedCount}件</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">売上総額</div>

@@ -264,6 +264,12 @@ h1 {
     color: #dc2626;
 }
 
+.status-text-disposal {
+    color: #4b5563;
+    /* Gray */
+    text-decoration: line-through;
+}
+
 /* Status Colors */
 .status-badge.status-purchased {
     background-color: #f3f4f6;
@@ -288,6 +294,12 @@ h1 {
 .status-badge.status-stagnant {
     background-color: #fee2e2;
     color: #dc2626;
+}
+
+.status-badge.status-disposal {
+    background-color: #e5e7eb;
+    color: #374151;
+    text-decoration: line-through;
 }
 
 .btn-sell {

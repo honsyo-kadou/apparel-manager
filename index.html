@@ -6,7 +6,7 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>Apparel Manager</title>
-    <link rel="stylesheet" href="style.v3.css?v=12">
+    <link rel="stylesheet" href="style.v3.css?v=13">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -200,6 +200,7 @@
                         <button type="button" class="status-chip" data-value="listed">出品中</button>
                         <button type="button" class="status-chip" data-value="sold">売却済</button>
                         <button type="button" class="status-chip" data-value="hold">保留</button>
+                        <button type="button" class="status-chip" data-value="disposal">処分</button>
                     </div>
                     <!-- Original select (hidden on mobile via CSS but kept for logic) -->
                     <select class="form-input status-select-desktop" id="itemStatus">
@@ -207,6 +208,7 @@
                         <option value="listed">出品中</option>
                         <option value="sold">売却済</option>
                         <option value="hold">保留</option>
+                        <option value="disposal">処分</option>
                         <option value="stagnant">回転悪化 (30日以上)</option>
                     </select>
                 </div>
@@ -316,8 +318,8 @@
         </div>
     </div>
 
-    <script src="db.js?v=12"></script>
-    <script src="app.js?v=12" defer></script>
+    <script src="db.js?v=13"></script>
+    <script src="app.js?v=13" defer></script>
 </body>
 
 </html>
