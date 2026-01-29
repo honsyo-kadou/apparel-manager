@@ -1119,15 +1119,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const items = getItemsInPeriod(startDate, endDate);
+        // 1. Sales Data (Existing)
+        const soldItems = getItemsInPeriod(startDate, endDate);
+
+        // 2. Purchase Count (New)
+        const purchasedItems = state.products.filter(p => {
+            return p.purchaseDate && p.purchaseDate >= startDate && p.purchaseDate <= endDate;
+        });
+
+        // 3. Listing Count (New)
+        const listedItems = state.products.filter(p => {
+            return p.listingDate && p.listingDate >= startDate && p.listingDate <= endDate;
+        });
 
         // Aggregation
         let totalSales = 0;
-        let totalCost = 0; // Buy Price
+        let totalCost = 0; // Buy Price of SOLD items
         let totalExpense = 0; // Commission + Shipping + Packaging
-        let count = items.length;
+        let count = soldItems.length;
 
-        items.forEach(p => {
+        soldItems.forEach(p => {
             totalSales += (p.sellPrice || 0);
             totalCost += (p.buyPrice || 0);
 
@@ -1140,13 +1151,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return {
             rangeLabel: reportType === 'monthly' ? `${reportMonthInput.value}月` : `${startDate} ~ ${endDate}`,
-            count,
+            count, // Sold count
+            purchasedCount: purchasedItems.length,
+            listedCount: listedItems.length,
             totalSales,
             totalCost,
             totalExpense,
             grossProfit,
             profitMargin,
-            items // for CSV
+            items: soldItems // for CSV
         };
     };
 
@@ -1155,6 +1168,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!stats) return;
 
         statsGrid.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-label">仕入数</div>
+                <div class="stat-value">${stats.purchasedCount}件</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">出品数</div>
+                <div class="stat-value">${stats.listedCount}件</div>
+            </div>
             <div class="stat-card">
                 <div class="stat-label">売上件数</div>
                 <div class="stat-value">${stats.count}件</div>
@@ -1169,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="stat-sub">利益率: ${stats.profitMargin}%</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">仕入総額</div>
+                <div class="stat-label">仕入総額(売却分)</div>
                 <div class="stat-value">${formatCurrency(stats.totalCost)}</div>
             </div>
              <div class="stat-card">
