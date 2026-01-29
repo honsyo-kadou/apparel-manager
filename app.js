@@ -504,12 +504,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const sellPriceInput = document.getElementById('editSellPrice').value;
             const sellPrice = sellPriceInput ? parseInt(sellPriceInput) : null;
-            const saleDate = document.getElementById('saleDate').value;
+            let saleDate = document.getElementById('saleDate').value;
             const memo = document.getElementById('itemMemo').value;
             let status = document.getElementById('itemStatus').value;
 
+            // Disposal Logic: Auto-fill date if missing
+            if (status === 'disposal' && !saleDate) {
+                saleDate = new Date().toISOString().split('T')[0];
+            }
+
             // Auto 'Sold' status logic
-            if (sellPrice !== null && saleDate) {
+            if (sellPrice !== null && saleDate && status !== 'disposal') {
                 status = 'sold';
             }
 
@@ -593,6 +598,15 @@ document.addEventListener('DOMContentLoaded', () => {
         statusChips.forEach(chip => {
             if (chip.dataset.value === selectedValue) {
                 chip.classList.add('active');
+
+                // NEW: Auto-fill date for 'Disposal'
+                if (selectedValue === 'disposal') {
+                    const saleDateInput = document.getElementById('saleDate');
+                    if (!saleDateInput.value) {
+                        saleDateInput.value = new Date().toISOString().split('T')[0];
+                    }
+                }
+
                 // Ensure specific styling for statuses based on CSS if needed, 
                 // currently just 'active' class which maps to primary color.
             } else {
